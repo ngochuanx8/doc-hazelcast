@@ -1,0 +1,138 @@
+public static String len3ToString(String pStrInt) {
+        StringBuilder strNumber = new StringBuilder();
+        int len = pStrInt.length();
+        char[] arr = pStrInt.toCharArray();
+
+        if ("000".equals(pStrInt) || "".equals(pStrInt)) {
+            return strNumber.toString();
+        } else {
+            switch (arr[0]) {
+                case '0':
+                    if (len == 3 || len == 1) strNumber.append(" không");
+                    break;
+                case '1':
+                    if (len == 2) strNumber.append(" mười");
+                    else strNumber.append(" một");
+                    break;
+                case '2': strNumber.append(" hai"); break;
+                case '3': strNumber.append(" ba"); break;
+                case '4': strNumber.append(" bốn"); break;
+                case '5': strNumber.append(" năm"); break;
+                case '6': strNumber.append(" sáu"); break;
+                case '7': strNumber.append(" bảy"); break;
+                case '8': strNumber.append(" tám"); break;
+                case '9': strNumber.append(" chín"); break;
+            }
+
+            if (len == 3) strNumber.append(" trăm");
+
+            if (len == 2 && arr[0] != '0' && arr[0] != '1') strNumber.append(" mươi");
+
+            if (len >= 2) {
+                switch (arr[1]) {
+                    case '1':
+                        if (len == 3) strNumber.append(" mười");
+                        if (len == 2 && arr[0] != '1') strNumber.append(" mốt");
+                        if (len == 2 && arr[0] == '1') strNumber.append(" một");
+                        break;
+                    case '2': strNumber.append(" hai"); break;
+                    case '3': strNumber.append(" ba"); break;
+                    case '4': strNumber.append(" bốn"); break;
+                    case '5':
+                        if (len == 2) strNumber.append(" lăm");
+                        else strNumber.append(" năm");
+                        break;
+                    case '6': strNumber.append(" sáu"); break;
+                    case '7': strNumber.append(" bảy"); break;
+                    case '8': strNumber.append(" tám"); break;
+                    case '9': strNumber.append(" chín"); break;
+                }
+
+                if (len == 3) {
+                    if (arr[1] != '0' && arr[1] != '1') strNumber.append(" mươi");
+                    if (arr[1] == '0' && arr[2] != '0') strNumber.append(" linh");
+                }
+            }
+
+            if (len == 3) {
+                switch (arr[2]) {
+                    case '1':
+                        if (arr[1] != '0' && arr[1] != '1') strNumber.append(" mốt");
+                        else strNumber.append(" một");
+                        break;
+                    case '2': strNumber.append(" hai"); break;
+                    case '3': strNumber.append(" ba"); break;
+                    case '4': strNumber.append(" bốn"); break;
+                    case '5':
+                        if (arr[1] != '0') strNumber.append(" lăm");
+                        else strNumber.append(" năm");
+                        break;
+                    case '6': strNumber.append(" sáu"); break;
+                    case '7': strNumber.append(" bảy"); break;
+                    case '8': strNumber.append(" tám"); break;
+                    case '9': strNumber.append(" chín"); break;
+                }
+            }
+
+            return strNumber.toString();
+        }
+    }
+    public static String numericIntToString(String pStrNumeric) {
+        String strNumber = "";
+        String strReadNumber = "";
+        String strRead3 = "";
+        int count = 0;
+        int len;
+        int len3;
+        int mod3;
+
+        // Xử lý các số kết thúc bằng ".0", ".00", v.v.
+        if (pStrNumeric.matches(".*\\.0+$")) {
+            pStrNumeric = pStrNumeric.split("\\.")[0];
+        }
+
+        // Loại bỏ dấu phân cách nhóm
+        strNumber = pStrNumeric.replace(",", "").replace(".", "");
+
+        // Loại bỏ số 0 đứng đầu
+        for (char c : strNumber.toCharArray()) {
+            if (c == '0') count++;
+            else break;
+        }
+        strNumber = strNumber.substring(count);
+
+        // Đọc chuỗi số
+        len = strNumber.length();
+        len3 = len / 3;
+        mod3 = len % 3;
+
+        // Xử lý trường hợp chuỗi rỗng
+        if (len == 0) {
+            strNumber = "0";
+            mod3 = 1;
+        }
+
+        // Đọc bộ số đầu tiên
+        strRead3 = len3ToString(strNumber.substring(0, mod3));
+        strReadNumber = strRead3;
+
+        for (int i = 0; i < len3; i++) {
+            if (((3 * (len3 - i)) % 9 == 0) && strReadNumber.length() > 0) {
+                strReadNumber += " tỉ";
+            }
+            if (strRead3.length() > 0) {
+                if ((3 * (len3 - i)) % 9 == 6) {
+                    strReadNumber += " triệu";
+                }
+                if ((3 * (len3 - i)) % 9 == 3) {
+                    strReadNumber += " nghìn";
+                }
+            }
+
+            // Đọc bộ số 3 ký tự
+            strRead3 = len3ToString(strNumber.substring(mod3 + i * 3, mod3 + i * 3 + 3));
+            strReadNumber += strRead3;
+        }
+
+        return strReadNumber.substring(0, 1).toUpperCase() + strReadNumber.substring(1);
+    }
