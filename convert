@@ -1,0 +1,1099 @@
+using Newtonsoft.Json.Linq;
+using Novacode;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text.RegularExpressions;
+
+namespace MmpBackOffice.Services.Utility
+{
+    public static class PrintUtils
+    {
+        private static readonly log4net.ILog Logger = log4net.LogManager.GetLogger("PrintServices");
+        private const string INVALID = "INVALID_CODE";
+
+        /// <summary>
+        /// Ngon ngu tieng Viet
+        /// </summary>
+        const string LAN_VN = "vi";
+        /// <summary>
+        /// Ngon ngu tieng Anh
+        /// </summary>
+        const string LAN_EN = "en";
+        /// <summary>
+        /// Song ngu Viet-Anh
+        /// </summary>
+        const string LAN_EV = "ev";
+
+        /// <summary>
+        /// lấy số numeric từ string là số hoặc e+ theo dấu phảy động(bỏ kiểu sử dụng e+ do làm sai số khi convert qua lại với decimal)
+        /// </summary>
+        /// <param name="number"></param>
+        /// <returns></returns>
+        private static decimal GetNumeric(string number)
+        {
+            try
+            {
+                if (number.ToUpper().Contains("E")) //bỏ sử dụng kiểu dữ liệu này do có thể gây ra sai số
+                {
+                    //du lieu float theo so dau phay dong e+
+                    if ((decimal)float.Parse(number) == 0)
+                        return 0;
+                    else
+                    {
+                        return (decimal)float.Parse(number);
+                    }
+                }
+                else
+                {
+                    //du lieu decimal khong theo dau phay dong e+
+                    if (decimal.Parse(number) == 0)
+                        return 0;
+                    else
+                    {
+                        return decimal.Parse(number);
+                    }
+                }
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// format money
+        /// </summary>
+        /// <param name="number"></param>
+        /// <param name="deliminator">,|.</param>
+        /// <returns></returns>
+        public static string FormatMoney(string number, string deliminator)
+        {
+            decimal f = GetNumeric(number);
+            if (f == 0)
+                return "0"; //giá trị = 0
+
+            if (f.GetType() == typeof(int))
+            {
+                //is integer ->
+                return f.ToString("###,###,###").Replace(",", deliminator);
+            }
+            //là số thập phân -> format phần integer riêng
+            decimal iPartOfNumber = Math.Truncate(f);
+            decimal dPartOfNumber = f - iPartOfNumber;
+            string sPartOfNumber = "";
+            if (dPartOfNumber > 0)
+                sPartOfNumber = dPartOfNumber.ToString().Replace("0.", ".");
+            if (deliminator == ".")
+                sPartOfNumber = sPartOfNumber.Replace(".", ","); //format phần thập phân tiếng Anh chuyển sang dấu ","
+            return iPartOfNumber.ToString("###,###,###").Replace(",", deliminator) + sPartOfNumber;
+        }
+
+        /// <summary>
+        /// Convert so thanh chu
+        /// </summary>
+        /// <param name="sSoCanDoi"></param>
+        /// <param name="sNgonNgu"></param>
+        /// <param name="suffixMoney"></param>
+        /// <returns></returns>
+        public static string FormatMoneyByText(string sSoCanDoi, string sNgonNgu, bool suffixMoney)
+        {
+            if (string.IsNullOrEmpty(sSoCanDoi))
+                return string.Empty;
+            string s = "";
+            switch (sNgonNgu.Trim())
+            {
+                case "":
+                    //s = VPBS_fNumberToCharVie(decimal.Parse(sSoCanDoi)) + (suffixMoney ? " đồng" : "");
+                    s = NumericIntToString(sSoCanDoi) + (suffixMoney ? " đồng" : "");
+                    return UppercaseFirst(s);
+                case LAN_VN:
+                    //s = VPBS_fNumberToCharVie(decimal.Parse(sSoCanDoi)) + (suffixMoney ? " đồng" : "");
+                    s = NumericIntToString(sSoCanDoi) + (suffixMoney ? " đồng" : "");
+                    return UppercaseFirst(s);
+                case LAN_EN:
+                    s = UppercaseFirst(VPBS_fNumberToCharEng(decimal.Parse(sSoCanDoi))) + (suffixMoney ? " Vietnamese dong" : "");
+                    return UppercaseFirst(s);
+                case LAN_EV:
+                    string sVN = UppercaseFirst(VPBS_fNumberToCharVie(decimal.Parse(sSoCanDoi)) + (suffixMoney ? " đồng" : ""));
+                    string sEN = UppercaseFirst(VPBS_fNumberToCharEng(decimal.Parse(sSoCanDoi))) + (suffixMoney ? " Vietnamese dong" : "");
+                    //return string.Format("1.000.000 đ ()/Trái phiếu/ đ 1,000,000 (Vietnamese dong One million) per Bond", sVN, sEN);
+                    return string.Format("{0}/{1}", sVN, sEN);
+                //return sEN;
+                default:
+                    s = VPBS_fNumberToCharVie(decimal.Parse(sSoCanDoi)) + (suffixMoney ? " đồng" : "");
+                    return UppercaseFirst(s);
+            }
+        }
+
+        /// <summary>
+        /// Xử lý viết hoa chữ cái đầu tiên của chuỗi
+        /// </summary>
+        /// <param name="s"></param>
+        /// <returns></returns>
+        public static string UppercaseFirst(string s)
+        {
+            if (string.IsNullOrEmpty(s))
+            {
+                return string.Empty;
+            }
+            char[] a = s.ToCharArray();
+            a[0] = char.ToUpper(a[0]);
+            return new string(a);
+        }
+
+        public static string Doi3So(decimal iSoCanDoi)
+        {
+            try
+            {
+                int index = 0;
+                int num2 = 0;
+                int num3 = 0;
+                string str = "";
+                string[] strArray = new string[10];
+                string[] strArray2 = new string[10];
+                string[] strArray3 = new string[10];
+                strArray[0] = "";
+                strArray[1] = "one";
+                strArray[2] = "two";
+                strArray[3] = "three";
+                strArray[4] = "four";
+                strArray[5] = "five";
+                strArray[6] = "six";
+                strArray[7] = "seven";
+                strArray[8] = "eight";
+                strArray[9] = "nine";
+                strArray2[0] = "";
+                strArray2[1] = "ten";
+                strArray2[2] = "twenty";
+                strArray2[3] = "thirty";
+                strArray2[4] = "forty";
+                strArray2[5] = "fifty";
+                strArray2[6] = "sixty";
+                strArray2[7] = "seventy";
+                strArray2[8] = "eighty";
+                strArray2[9] = "ninety";
+                strArray3[0] = "ten";
+                strArray3[1] = "eleven";
+                strArray3[2] = "twelve";
+                strArray3[3] = "thirteen";
+                strArray3[4] = "fourteen";
+                strArray3[5] = "fifteen";
+                strArray3[6] = "sixteen";
+                strArray3[7] = "seventeen";
+                strArray3[8] = "eighteen";
+                strArray3[9] = "nineteen";
+                index = ((int)iSoCanDoi) / 100;
+                iSoCanDoi = iSoCanDoi % 100M;
+                num2 = ((int)iSoCanDoi) / 10;
+                num3 = ((int)iSoCanDoi) % 10;
+                if (index == 1)
+                {
+                    //str = "a hundred ";
+                    str = "one hundred ";
+                }
+                else if (index > 1)
+                {
+                    str = strArray[index] + " hundred ";
+                }
+                if ((num2 != 0) || (num3 != 0))
+                {
+                    if (num2 == 1)
+                    {
+                        str = str + " and " + strArray3[num3];
+                    }
+                    else if (num2 > 1)
+                    {
+                        string str3 = str;
+                        str = str3 + " and " + strArray2[num2] + " " + strArray[num3];
+                    }
+                    else if (num2 == 0)
+                    {
+                        if (index != 0)
+                        {
+                            return (str + " and " + strArray[num3]);
+                        }
+                        return (str + " " + strArray[num3]);
+                    }
+                }
+                return str;
+            }
+            catch (Exception exception)
+            {
+                return ("Doi3So " + exception.Message);
+            }
+        }
+
+        public static string Doi3So_vi(decimal iSoCanDoi)
+        {
+            try
+            {
+                int index = 0;
+                int num2 = 0;
+                int num3 = 0;
+                string str = "";
+                string[] strArray = new string[] { "", "một", "hai", "ba", "bốn", "năm", "s\x00e1u", "bảy", "t\x00e1m", "ch\x00edn" };
+                index = ((int)iSoCanDoi) / 100;
+                iSoCanDoi = iSoCanDoi % 100M;
+                num2 = ((int)iSoCanDoi) / 10;
+                num3 = ((int)iSoCanDoi) % 10;
+                if (index >= 1)
+                {
+                    str = strArray[index] + " trăm ";
+                }
+                if (num2 == 1)
+                {
+                    str = str + " mười";
+                }
+                if (num2 >= 2)
+                {
+                    str = str + strArray[num2] + " mươi";
+                }
+                if (num3 != 0)
+                {
+                    switch (num2)
+                    {
+                        case 0:
+                            if (index != 0)
+                            {
+                                return (str + " lẻ " + strArray[num3]);
+                            }
+                            return (str + " " + strArray[num3]);
+
+                        case 1:
+                            if (num3 != 5)
+                            {
+                                return (str + " " + strArray[num3]);
+                            }
+                            return (str + " lăm");
+                    }
+                    if (num3 == 1)
+                    {
+                        str = str + " mốt";
+                    }
+                    else if (num3 == 5)
+                    {
+                        str = str + " lăm";
+                    }
+                    else
+                    {
+                        str = str + " " + strArray[num3];
+                    }
+                }
+                return str;
+            }
+            catch (Exception exception)
+            {
+                return ("Doi3So_vi " + exception.Message);
+            }
+        }
+
+        public static string VPBS_fNumberToCharEng(decimal iSoCanDoi)
+        {
+            try
+            {
+                int num = 0;
+                decimal num2 = 0M;
+                string str = "";
+                string str2 = "";
+                string str3 = "";
+                string[] strArray = new string[] { "", "billion, ", "thousand, ", "million, " };
+                string str4 = "";
+                if (iSoCanDoi < 0M)
+                {
+                    str4 = "minus ";
+                    iSoCanDoi *= -1M;
+                }
+                if (iSoCanDoi >= 1M)
+                {
+                    while (iSoCanDoi >= 1M)
+                    {
+                        num2 = iSoCanDoi % 1000M;
+                        iSoCanDoi /= 1000M;
+                        str2 = Doi3So(num2).Trim();
+                        if (num == 0)
+                        {
+                            str = str2;
+                        }
+                        else if (str2.Length != 0)
+                        {
+                            str3 = strArray[(num % 3) + 1];
+                            str = str2 + " " + str3 + " " + str;
+                        }
+                        else if ((num % 3) == 0)
+                        {
+                            str = "billion " + str;
+                        }
+                        num++;
+                    }
+                }
+                else
+                {
+                    str = " zero";
+                }
+                if ((str.Length > 3) && str.Substring(0, 3).Equals("and"))
+                {
+                    str = str.Substring(3).Trim();
+                }
+                if ((str.Length > 1) && str.Substring(str.Length - 1, 1).Equals(","))
+                {
+                    str = str.Substring(0, str.Length - 1).Trim();
+                }
+                string sResult = (str4 + str.Trim().Replace("  ", " "));
+                if (sResult.EndsWith(","))
+                    return sResult.Substring(0, sResult.Length - 1);
+                return sResult;
+            }
+            catch (Exception exception)
+            {
+                return ("So2Chu " + exception.Message);
+            }
+        }
+
+        public static string VPBS_fNumberToCharVie(decimal iSoCanDoi)
+        {
+            try
+            {
+                int num = 0;
+                decimal num2 = 0M;
+                string str = "";
+                string str2 = "";
+                string str3 = "";
+                string[] strArray = new string[4];
+                int num3 = 0;
+                strArray[0] = "";
+                strArray[1] = "tỉ";
+                strArray[2] = "ngh\x00ecn";
+                strArray[3] = "triệu";
+                string str4 = "";
+                if (iSoCanDoi < 0M)
+                {
+                    str4 = "\x00e2m ";
+                    iSoCanDoi *= -1M;
+                }
+                if (iSoCanDoi >= 1M)
+                {
+                    while (iSoCanDoi >= 1M)
+                    {
+                        num2 = iSoCanDoi % 1000M;
+                        iSoCanDoi /= 1000M;
+                        str2 = Doi3So_vi(num2).Trim();
+                        if (num == 0)
+                        {
+                            str = str2;
+                            if (num2 < 10M)
+                            {
+                                num3 = 1;
+                            }
+                            else if (num2 < 100M)
+                            {
+                                num3 = 2;
+                            }
+                            else
+                            {
+                                num3 = 3;
+                            }
+                        }
+                        else if (str2.Length != 0)
+                        {
+                            str3 = strArray[(num % 3) + 1];
+                            if (str.Equals(""))
+                            {
+                                str = str2 + " " + str3 + " " + str;
+                            }
+                            else
+                            {
+                                switch (num3)
+                                {
+                                    case 1:
+                                        str = " kh\x00f4ng trăm linh " + str;
+                                        break;
+
+                                    case 2:
+                                        str = " kh\x00f4ng trăm " + str;
+                                        break;
+                                }
+                                str = str2 + " " + str3 + " " + str;
+                            }
+                            if (num2 < 10M)
+                            {
+                                num3 = 1;
+                            }
+                            else if (num2 < 100M)
+                            {
+                                num3 = 2;
+                            }
+                            else
+                            {
+                                num3 = 3;
+                            }
+                        }
+                        num++;
+                    }
+                }
+                else
+                {
+                    str = " không";
+                }
+                return (str4 + str.Trim().Replace("  ", " "));
+            }
+            catch (Exception exception)
+            {
+                return ("So2Chu_vi " + exception.Message);
+            }
+        }
+
+        /// <summary>
+        /// KL version EN
+        /// </summary>
+        /// <param name="number"></param>
+        /// <returns></returns>
+        public static string ConvertToTextEVKL(string number)
+        {
+            string str = ConvertToTextEN(number);
+            string su = str.Trim().Substring(0, 1);
+            str = "_" + str.Trim();
+            return str.Replace("_" + su, su.ToUpper());
+        }
+
+        /// <summary>
+        /// Money version EN
+        /// </summary>
+        /// <param name="number"></param>
+        /// <returns></returns>
+        public static string ConvertToTextEV(string number)
+        {
+            string str = ConvertToTextEN(number);
+            string su = str.Trim().Substring(0, 1);
+            str = "_" + str.Trim();
+            return (str.Replace("_" + su, su.ToUpper()) + " Vietnamese").Trim();
+        }
+
+        /// <summary>
+        /// Number to text
+        /// </summary>
+        /// <param name="_number"></param>
+        /// <returns></returns>
+        public static string ConvertToTextEN(string _number)
+        {
+            string billion = ""
+                    , million = ""
+                    , thousand = "";
+                   
+
+            Int64 number;
+            try
+            {
+                number = Int64.Parse(decimal.Parse(_number).ToString("#"));
+            }
+            catch
+            {
+                number = 0;
+            }
+
+            if (number == 0)
+                return "Zero";
+
+            if (number < 0)
+                return "Minus " + ConvertToTextEN(Math.Abs(number).ToString());
+
+            string words = "";
+
+            if ((number / 1000000000) > 0)
+            {
+                billion = number % 1000000000 == 0 ? " billion " : " billion, ";
+                words += ConvertToTextEN((number / 1000000000).ToString()) + billion;
+                number %= 1000000000;
+            }
+
+            if ((number / 1000000) > 0)
+            {
+                million = number % 1000000 == 0 ? " million " : " million, ";
+                words += ConvertToTextEN((number / 1000000).ToString()) + million;
+                number %= 1000000;
+            }
+
+            if ((number / 1000) > 0)
+            {
+                thousand = number % 1000 == 0 ? " thousand " : " thousand, ";
+                words += ConvertToTextEN((number / 1000).ToString()) + thousand;
+                number %= 1000;
+            }
+
+            if ((number / 100) > 0)
+            {
+                words += ConvertToTextEN((number / 100).ToString()) + " hundred ";
+                number %= 100;
+            }
+
+            if (number > 0)
+            {
+                if (words != "")
+                    words += "and ";
+
+                var unitsMap = new[] { "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen" };
+                var tensMap = new[] { "zero", "ten", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety" };
+
+                if (number < 20)
+                    words += unitsMap[number];
+                else
+                {
+                    words += tensMap[number / 10];
+                    if ((number % 10) > 0)
+                        words += "-" + unitsMap[number % 10];
+                }
+            }
+
+            return words.Replace("  ", " "); //fix loi hundred co 2 dau cach: One hundred  million
+        }
+
+        /// <summary>
+        /// format dữ liệu
+        /// </summary>
+        /// <param name="val"></param>
+        /// <param name="formatType"></param>
+        /// <returns></returns>
+        public static string FormatValue(string val, string formatType)
+        {
+
+
+
+            if (val == "" || val.ToUpper().Contains("INVALID"))
+                return val; //xử lý case dữ liệu lỗi
+            string sValFormated = "";
+            switch (formatType.Trim())
+            {
+                case "D1":
+                case "M1":
+                case "Y1":
+                    try
+                    {
+                        if (string.IsNullOrEmpty(val) == false && val.Contains("/"))
+                        {
+                            string[] temp = val.Split('/');
+                            if (formatType.Trim() == "D1" && temp.Length > 0)
+                                sValFormated = temp[0];
+                            if (formatType.Trim() == "M1" && temp.Length > 1)
+                                sValFormated = temp[1];
+                            if (formatType.Trim() == "Y1" && temp.Length > 2)
+                                sValFormated = temp[2];
+                            if (sValFormated == "")
+                            {
+                                sValFormated = INVALID;
+                            }
+                        }
+                        else
+                            sValFormated = INVALID;
+                        break;
+                    }
+                    catch (Exception)
+                    {
+                        sValFormated = INVALID;
+                        Logger.Error(string.Format("FormatValue()-> ERROR CONVERT -> val:{0},formattype:{1}", val, formatType));
+                    }
+                    break;
+                case "FD": //format date VN: dd/MM/yyyy
+                    try
+                    {
+                        sValFormated = DateTime.Parse(val).ToString("dd/MM/yyyy");
+                    }
+                    catch (Exception ex)
+                    {
+                        //sValFormated = ConvertDate(val).ToString("dd/MM/yyyy");
+                        //sValFormated = INVALID;
+                        Logger.Error(string.Format("FormatValue()-> ERROR CONVERT -> val:{0},formattype:{1}", val, formatType),ex);
+                        sValFormated = "../../..";
+                    }
+                    break;
+                case "FD2": //format date EN: MM/dd/yyyy
+                    try
+                    {
+                        sValFormated = DateTime.Parse(val).ToString("MM/dd/yyyy");
+                    }
+                    catch (Exception ex)
+                    {
+                        //sValFormated = ConvertDate(val).ToString("MM/dd/yyyy");
+                        //sValFormated = INVALID;
+                        Logger.Error(string.Format("FormatValue()-> ERROR CONVERT -> val:{0},formattype:{1}", val, formatType) ,ex);
+                        sValFormated = "../../..";
+                    }
+                    break;
+                case "FD3": //format date EN: 20 July 2018
+                    try
+                    {
+                        sValFormated = DateTime.Parse(val).ToString("dd MMMM yyyy");
+                    }
+                    catch (Exception ex)
+                    {
+                        //sValFormated = ConvertDate(val).ToString("MM/dd/yyyy");
+                        //sValFormated = INVALID;
+                        Logger.Error(string.Format("FormatValue()-> ERROR CONVERT -> val:{0},formattype:{1}", val, formatType), ex);
+                        sValFormated = "../../..";
+                    }
+                    break;
+                case "FM": //format money, phan tach boi dau "."
+                    try
+                    {
+                        sValFormated = FormatMoney(val, ".");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error(string.Format("FormatValue()-> ERROR CONVERT -> val:{0},formattype:{1}", val, formatType), ex);
+                        sValFormated = INVALID;
+                    }
+                    break;
+                case "FM2": //format money, phan tach boi dau ","
+                    try
+                    {
+                        sValFormated = FormatMoney(val, ",");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error(string.Format("FormatValue()-> ERROR CONVERT -> val:{0},formattype:{1}", val, formatType), ex);
+                        sValFormated = INVALID;
+                    }
+                    break;
+                case "FM3": //format money, phan tach boi dau ","
+                    try
+                    {
+                        float x = 0;
+                        if (float.TryParse(val, out x) == false)
+                        {
+                            return val;
+                        }
+                        sValFormated = FormatMoney(val, ",");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error(string.Format("FormatValue()-> ERROR CONVERT -> val:{0},formattype:{1}", val, formatType), ex);
+                        sValFormated = INVALID;
+                    }
+                    break;
+                case "FME3": //format money, phan tach boi dau ","
+                    try
+                    {
+                        float x = 0;
+                        if (float.TryParse(val, out x) == false)
+                        {
+                            return val;
+                        }
+                        sValFormated = FormatMoney(val, ".");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error(string.Format("FormatValue()-> ERROR CONVERT -> val:{0},formattype:{1}", val, formatType), ex);
+                        sValFormated = INVALID;
+                    }
+                    break;
+                //format của các property dựa theo key gốc
+                case "D": //format property day of datetime
+                    try
+                    {
+                        sValFormated = DateTime.Parse(val).Day.ToString();
+                    }
+                    catch (Exception ex)
+                    {
+                        //sValFormated = ConvertDate(val).Day.ToString();
+                        Logger.Error(string.Format("FormatValue()-> ERROR CONVERT -> val:{0},formattype:{1}", val, formatType), ex);
+                        sValFormated = INVALID;
+                    }
+                    break;
+                case "M": //format property month of datetime
+                    try
+                    {
+                        sValFormated = DateTime.Parse(val).Month.ToString();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error(string.Format("FormatValue()-> ERROR CONVERT -> val:{0},formattype:{1}", val, formatType), ex);
+                        //sValFormated = ConvertDate(val).Month.ToString();
+                        sValFormated = INVALID;
+                    }
+                    break;
+                case "Y": //format property year of datetime
+                    try
+                    {
+                        sValFormated = DateTime.Parse(val).Year.ToString();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error(string.Format("FormatValue()-> ERROR CONVERT -> val:{0},formattype:{1}", val, formatType), ex);
+                        //sValFormated = ConvertDate(val).Year.ToString();
+                        sValFormated = INVALID;
+                    }
+                    break;
+                case "UPPER": //format property UPPER
+                    sValFormated = val.ToUpper();
+                    break;
+                case "TEXT": //format property text
+                    decimal num = (decimal)GetNumeric(val);
+                    sValFormated = FormatMoneyByText(num.ToString(), LAN_VN, true);
+                    break;
+                case "TEXT2": //format property text(không có suffix đồng thêm vào cuối)
+                    decimal num2 = (decimal)GetNumeric(val);
+                    sValFormated = FormatMoneyByText(num2.ToString(), LAN_VN, false);
+                    break;
+                case "TEXT3": //format property text EN(số tiền có Vietnamese dong)
+                    decimal num3 = (decimal)GetNumeric(val);
+                    sValFormated = ConvertToTextEV(num3.ToString()) + " dong";
+                    break;
+                case "TEXT4": //format property text EN(so -> text version EN)
+                    decimal num4 = (decimal)GetNumeric(val);
+                    sValFormated = ConvertToTextEVKL(num4.ToString());
+                    break;
+                default:
+                    sValFormated = val;
+                    break;
+            }
+            return sValFormated;
+        }
+
+        public static string ConvertPDFToBase64(string pathFile)
+        {
+            try
+            {
+                byte[] pdfBytes = File.ReadAllBytes(pathFile);
+                string pdfBase64 = null;
+                if (pdfBytes != null)
+                {
+                    pdfBase64 = System.Convert.ToBase64String(pdfBytes);
+                    return pdfBase64;
+                }
+                return null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        public static string ConvertStreamToBase64(Stream stream)
+        {
+            try
+            {
+                byte[] bytes;
+                using (var memoryStream = new MemoryStream())
+                {
+                    stream.CopyTo(memoryStream);
+                    bytes = memoryStream.ToArray();
+                }
+                if (bytes != null)
+                {
+                    string base64 = System.Convert.ToBase64String(bytes);
+                    return base64;
+                }
+                return null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        public static Dictionary<string, string> getDictionaryJarray(JArray array)
+        {
+            Dictionary<string, string> dicInfo2Repalce = new Dictionary<string, string>();
+            try
+            {
+                foreach (JObject content in array.Children<JObject>())
+                {
+                    foreach (JProperty prop in content.Properties())
+                    {
+                        dicInfo2Repalce.Add(prop.Name.ToUpper(), prop.Value.ToString());
+                    }
+                }
+                return dicInfo2Repalce;
+            }
+            catch (Exception )
+            {
+                return dicInfo2Repalce;
+            }
+        }
+        /// <summary>
+        /// Hàm đọc số thành chữ
+        /// </summary>
+        /// <param name="pStrNumeric"></param>
+        /// <returns></returns>
+        public static string NumericIntToString(string pStrNumeric)
+        {
+            string strNumber = "";
+            string strReadNumber = "";
+            string strRead3 = "";
+            char[] arr = new char[100];
+            int i = 0;
+            int count = 0;
+            int len = 0;
+            int len3 = 0;
+            int mod3 = 0;
+            if (pStrNumeric.EndsWith(".0") || pStrNumeric.EndsWith(".00") || pStrNumeric.EndsWith(".000") || pStrNumeric.EndsWith(".0000") || pStrNumeric.EndsWith(".00000") || pStrNumeric.EndsWith(".000000") || pStrNumeric.EndsWith(".0000000") || pStrNumeric.EndsWith(".00000000") || pStrNumeric.EndsWith(".000000000") || pStrNumeric.EndsWith(".0000000000"))
+            {
+                if (pStrNumeric.Split('.').Length == 2)
+                {
+                    pStrNumeric = pStrNumeric.Split('.')[0];
+                }
+            }
+            // Loại bỏ dấu phân cách nhóm
+            strNumber = pStrNumeric.Replace(",", "");
+            strNumber = strNumber.Replace(".", "");
+
+            // Loại bỏ số 0 đứng đầu
+            arr = strNumber.ToCharArray();
+            for (i = 0; i < arr.Length; i++)
+            {
+                if (arr[i] == 0)
+                {
+                    count++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            strNumber = strNumber.Substring(count);
+
+            // Doc chuoi so
+            len = strNumber.Length;
+            // Dem bo so 3
+            len3 = len / 3;
+            mod3 = len % 3;
+
+            // Neu doi dai chuoi la 0 thi gan la so 0
+            if (len == 0)
+            {
+                strNumber = "0";
+                mod3 = 1;
+            }
+            // Doc bo so dau tien
+            strRead3 = Len3ToString(strNumber.Substring(0, mod3));
+            strReadNumber = strRead3;
+            for (i = 0; i < len3; i++)
+            {
+                if (((3 * (len3 - i)) % 9 == 0) && (strReadNumber.Length > 0))
+                {
+                    strReadNumber += " tỉ";
+                }
+                if (strRead3.Length > 0)
+                {
+                    if ((3 * (len3 - i)) % 9 == 6)
+                    {
+                        strReadNumber += " triệu";
+                    }
+                    if (((3 * (len3 - i)) % 9 == 3))
+                    {
+                        strReadNumber += " nghìn";
+                    }
+                }
+                // Đọc chuỗi 3 kí tự
+                strRead3 = Len3ToString(strNumber.Substring(mod3 + i * 3, 3));
+                // Luu chuỗi còn lại
+                //strNumber = strNumber.Substring(mod3 + i * 3);
+                // Gán vào chuỗi kết quả đọc
+                strReadNumber += strRead3;
+            }
+
+            return strReadNumber.Substring(1, 1).ToUpper() + strReadNumber.Substring(2);
+        }
+        ///-----------------------------------------------------------------------------------
+        /// <summary>
+        /// Ham doc mot chuoi co doi dai toi da la 3
+        /// </summary>
+        /// <param name="pStrKey"></param>
+        /// <returns></returns>
+        public static string Len3ToString(string pStrInt)
+        {
+            string strNumber = "";
+            int len = pStrInt.Length;
+            char[] arr = new char[5];
+            if ((pStrInt == "000") || (pStrInt == ""))
+            {
+                return strNumber;
+            }
+            else
+            {
+                arr = pStrInt.ToCharArray();
+                switch (arr[0])
+                {
+                    case '0':
+                        if (len == 3 || len == 1)
+                        {
+                            strNumber += " không";
+                        }
+                        break;
+
+                    case '1':
+                        if (len == 2)
+                        {
+                            strNumber += " mười";
+                        }
+                        else
+                        {
+                            strNumber += " một";
+                        }
+                        break;
+                    case '2':
+                        strNumber += " hai";
+                        break;
+                    case '3':
+                        strNumber += " ba";
+                        break;
+                    case '4':
+                        strNumber += " bốn";
+                        break;
+                    case '5':
+                        strNumber += " năm";
+                        break;
+                    case '6':
+                        strNumber += " sáu";
+                        break;
+                    case '7':
+                        strNumber += " bảy";
+                        break;
+                    case '8':
+                        strNumber += " tám";
+                        break;
+                    case '9':
+                        strNumber += " chín";
+                        break;
+                }
+                if (len == 3)
+                {
+                    // hàng Trăm
+                    strNumber += " trăm";
+                }
+                if (len == 2)
+                {
+                    if ((arr[0] != '0') && (arr[0] != '1'))
+                    {
+                        strNumber += " mươi";
+                    }
+                }
+                // Hàng Chục
+                if (len >= 2)
+                {
+                    switch (arr[1])
+                    {
+                        case '1':
+                            if (len == 3)
+                            {
+                                strNumber += " mười";
+                            }
+                            if ((len == 2) && (arr[0] != '1'))
+                            {
+                                strNumber += " mốt";
+                            }
+                            if ((len == 2) && (arr[0] == '1'))
+                            {
+                                strNumber += " một";
+                            }
+                            break;
+                        case '2':
+                            strNumber += " hai";
+                            break;
+                        case '3':
+                            strNumber += " ba";
+                            break;
+                        case '4':
+                            //if (len == 2)
+                            //{
+                            //    strNumber += " tư";
+                            //}
+                            //else
+                            //{
+                            strNumber += " bốn";
+                            //}
+                            break;
+                        case '5':
+                            if (len == 2)
+                            {
+                                strNumber += " lăm";
+                            }
+                            else
+                            {
+                                strNumber += " năm";
+                            }
+                            break;
+                        case '6':
+                            strNumber += " sáu";
+                            break;
+                        case '7':
+                            strNumber += " bảy";
+                            break;
+                        case '8':
+                            strNumber += " tám";
+                            break;
+                        case '9':
+                            strNumber += " chín";
+                            break;
+                    }
+                    if (len == 3)
+                    {
+                        if ((arr[1] != '0') && (arr[1] != '1'))
+                        {
+                            strNumber += " mươi";
+                        }
+                        if ((arr[1] == '0') && (arr[2] != '0'))
+                        {
+                            strNumber += " linh";
+                        }
+                    }
+                }
+                // Hàng đơn vị
+                if (len == 3)
+                {
+                    switch (arr[2])
+                    {
+                        case '1':
+                            if (arr[1] != '0' && arr[1] != '1')
+                            {
+                                strNumber += " mốt";
+                            }
+                            else
+                            {
+                                strNumber += " một";
+                            }
+                            break;
+                        case '2':
+                            strNumber += " hai";
+                            break;
+                        case '3':
+                            strNumber += " ba";
+                            break;
+                        case '4':
+                            //if ((arr[1] != '0') && (arr[1] != '1'))
+                            //{
+                            //    strNumber += " tư";
+                            //}
+                            //else
+                            //{
+                            strNumber += " bốn";
+                            //}
+                            break;
+                        case '5':
+                            if (arr[1] != '0')
+                            {
+                                strNumber += " lăm";
+                            }
+                            else
+                            {
+                                strNumber += " năm";
+                            }
+                            break;
+                        case '6':
+                            strNumber += " sáu";
+                            break;
+                        case '7':
+                            strNumber += " bảy";
+                            break;
+                        case '8':
+                            strNumber += " tám";
+                            break;
+                        case '9':
+                            strNumber += " chín";
+                            break;
+                    }
+                }
+                return strNumber;
+            }
+        }
+    }
+}
